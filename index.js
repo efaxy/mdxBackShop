@@ -18,14 +18,14 @@ if (!process.env.MONGODB_URL) {
 const url = process.env.MONGODB_URL;
 let db;
 
-MongoClient.connect(url)
-    .then((client) => {
-        db = client.db("activities");
-        console.log("Connected to MongoDB");
-    })
-    .catch((err) => {
+MongoClient.connect(url, (err, client) => {
+    if (err) {
         console.error("Failed to connect to MongoDB:", err);
-    });
+        return;
+    }
+    db = client.db("activities");
+    console.log("Connected to MongoDB");
+});
 
 // Enable CORS
 app.use((req, res, next) => {
