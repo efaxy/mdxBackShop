@@ -6,16 +6,22 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
+app.use(express.json());
 
-const client = new MongoClient(process.env.MONGODB_URL);
+const url = process.env.MONGODB_URL;
 
-const start = async () => {
-    try {
-        await client.connect();
-        console.log("Connected to MongoDB");
-    } catch (err) {
-        console.log(err);
+//db connection
+let db;
+MongoClient.connect(url, (error, client) => {
+    if (error) {
+        console.error("Failed to connect to MongoDB:", error);
+        return;
     }
-};
 
-start();
+    db = client.db("activities");
+    console.log("connected");
+});
+
+// app.use("/image", (req, res) => {	});
+
+app.listen(3000);
