@@ -48,6 +48,9 @@ app.use((req, res, next) => {
 
 // Middleware to handle :collectionName parameter
 app.param("collectionName", (req, res, next, collectionName) => {
+    if (!db) {
+        return res.status(503).send("Database not connected");
+    }
     req.collection = db.collection(collectionName);
     return next();
 });
@@ -55,56 +58,63 @@ app.param("collectionName", (req, res, next, collectionName) => {
 // Routes
 
 // Search route
-app.get("/collection/:collectionName/search", async (req, res) => {
-    try {
-        const queryStr = req.query.q;
-        if (!queryStr) return res.status(400).json({ msg: "Query required" });
+app.get("/collection/:collectionName/search", (req, res) => {
+    const queryStr = req.query.q;
+    if (!queryStr) return res.status(400).json({ msg: "Query required" });
 
-        const results = await req.collection
-            .find({
-                $or: [
-                    { title: { $regex: queryStr, $options: "i" } },
-                    { location: { $regex: queryStr, $options: "i" } },
-                ],
-            })
-            .toArray();
+    let searchConditions = [
+        { title: { $regex: queryStr, $options: "i" } },
+        { location: { $regex: queryStr, $options: "i" } },
+        { day: { $regex: queryStr, $options: "i" } },
+    ];
 
-        res.json(results);
-    } catch (e) {
-        res.status(500).send(e.message);
+    const numberQuery = parseInt(queryStr);
+    if (!isNaN(numberQuery)) {
+        searchConditions.push({ price: numberQuery });
+        searchConditions.push({ availableInventory: numberQuery });
     }
+    const query = {
+        $or: searchConditions,
+    };
+
+    req.collection.find(query).toArray((error, results) => {
+        if (error) return res.status(500).send(error.message);
+        res.send(results);
+    });
 });
 
 // Get all documents in a collection
-app.get("/collection/:collectionName", async (req, res) => {
-    const results = await req.collection.find({}).toArray();
-    res.json(results);
+app.get("/collection/:collectionName", (req, res) => {
+    req.collection.find({}).toArray((error, results) => {
+        if (error) return res.status(500).send(error.message);
+        res.send(results);
+    });
 });
 
 // Create an order
-app.post("/collection/:collectionName", async (req, res) => {
-    const result = await req.collection.insertOne(req.body);
-    res.json(result);
+app.post("/collection/:collectionName", (req, res) => {
+    req.collection.insertOne(req.body);
+    res.json({ status: "ok" });
 });
 
 // Update a document
-app.put("/collection/:collectionName/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
+app.put("/collection/:collectionName/:id", (req, res) => {
+    const { id } = req.params;
 
-        if (!ObjectId.isValid(id)) {
-            return res.status(400).send("Invalid ID");
-        }
-
-        const result = await req.collection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: req.body }
-        );
-
-        res.json(result);
-    } catch (e) {
-        res.status(500).send("Error updating document");
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).send("Invalid ID");
     }
+
+    req.collection.updateOne(
+        { _id: new ObjectId(id) },
+        { $inc: req.body },
+        (err, result) => {
+            if (err) {
+                return res.status(500).send("Error updating document");
+            }
+            res.json({ status: "ok" });
+        }
+    );
 });
 
 app.listen(3000, () => {
