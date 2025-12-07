@@ -100,14 +100,14 @@ app.post("/collection/:collectionName", (req, res) => {
 // Update a document
 app.put("/collection/:collectionName/:id", (req, res) => {
     const { id } = req.params;
-
+    const stock = Number(req.body.stock);
     if (!ObjectId.isValid(id)) {
         return res.status(400).send("Invalid ID");
     }
-
+    console.log(id);
     req.collection.updateOne(
         { _id: new ObjectId(id) },
-        { $inc: req.body },
+        { $inc: { availableInventory: stock } },
         (err, result) => {
             if (err) {
                 return res.status(500).send("Error updating document");
